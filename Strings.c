@@ -60,7 +60,7 @@ string* create_string(const char* text)
 
 // Free an string
 // Returns true on success, or false on failure
-bool free_string(const string* string_handle)
+bool free_string(string* string_handle)
 {
 	if (string_handle != NULL)
 	{
@@ -234,7 +234,7 @@ string* replace_string_c(string* string_handle, const char* source_string, const
 
 // Replace an source string with the replacement string
 // Returns const char* on success, or NULL on failure
-const char* c_replace_string_c(char* string_handle, const char* source_string, const char* replacement_string)
+char* c_replace_string_c(char* string_handle, const char* source_string, const char* replacement_string)
 {
 	// Check if the string pointers are valid
 	if (string_handle != NULL && source_string != NULL && replacement_string != NULL)
