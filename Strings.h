@@ -19,7 +19,7 @@ string* create_string(const char* text);
 
 // Free an string
 // Returns true on success, or false on failure
-bool free_string(const string* istniejacy_string);
+bool free_string(string* string_handle);
 
 // Replace an source string with the replacement string
 // Returns string* on success, or NULL on failure
@@ -31,4 +31,4 @@ string* replace_string_c(string* string_handle, const char* source_string, const
 
 // Replace an source string with the replacement string
 // Returns const char* on success, or NULL on failure
-const char* c_replace_string_c(char* string_handle, const char* source_string, const char* replacement_string);
+char* c_replace_string_c(char* string_handle, const char* source_string, const char* replacement_string);
