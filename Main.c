@@ -29,8 +29,8 @@ int main(int argument_count, char* argument_list[])
 	else if (argument_count == 2 || argument_count == 3)
 	{
 		// Determine the source and target file path
-		const char* source_path = argument_list[1];
-		const char* target_path = NULL;
+		char* source_path = argument_list[1];
+		char* target_path = NULL;
 		if (argument_count == 3)
 		{
 			target_path = argument_list[2];
