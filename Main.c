@@ -16,7 +16,7 @@ unsigned long MSI_Image_Start_Locations[] = { 0x1A3090, 0x1A30A8, 0x1A30B4 };
 int main(int argument_count, char* argument_list[])
 {
 	// Print program header
-	printf("MSI UEFI Firmware Extractor v1.0.0\n");
+	printf("MSI UEFI Firmware Extractor v1.0.1\n");
 
 	if (argument_count == 1)
 	{
