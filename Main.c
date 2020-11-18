@@ -9,19 +9,19 @@
 #include "Files.h"
 #include "Strings.h"
 
-#define MSI_New_Image_Start_Location 0x1A3090
-#define MSI_Old_Image_Start_Location 0x1A30A8
+// Image start location definitions
+unsigned long MSI_Image_Start_Locations[] = { 0x1A3090, 0x1A30A8, 0x1A30B4 };
 
 // Program Entry Point
 int main(int argument_count, char* argument_list[])
 {
 	// Print program header
-	puts("MSI UEFI Firmware Extractor v1.0.0");
+	printf("MSI UEFI Firmware Extractor v1.0.0\n");
 
 	if (argument_count == 1)
 	{
 		// Print usage
-		puts("Usage: input_file [output_file]");
+		printf("Usage: input_file [output_file]\n");
 
 		// Report success
 		return 0;
@@ -49,53 +49,64 @@ int main(int argument_count, char* argument_list[])
 			data_buffer* source_buffer = read_file(source_path);
 			if (source_buffer != NULL)
 			{
+				// Determine count of image start location
+				unsigned int start_location_count = (sizeof(MSI_Image_Start_Locations) / sizeof(MSI_Image_Start_Locations[0]));
+				
 				// Determine the firmware image offset
 				unsigned long firmware_image_offset = 0;
-				memcpy(&firmware_image_offset, source_buffer->data + MSI_New_Image_Start_Location, 4);
-				if (firmware_image_offset < 1024)
+				for(unsigned int locations_processed = 0; locations_processed < start_location_count; locations_processed++)
 				{
-					// The new firmware image was invalid, use the older one
-					memcpy(&firmware_image_offset, source_buffer->data + MSI_Old_Image_Start_Location, 4);
+					// Copy the firmware image offset from the source file
+					memcpy(&firmware_image_offset, source_buffer->data + MSI_Image_Start_Locations[locations_processed], 4);
+					
+					// Check if the firmware offset is valid
+					if(firmware_image_offset > 1024)
+					{
+						break;
+					}
+				}
+				
+				// Check if the firmware offset is valid
+				if(firmware_image_offset > 1024)
+				{
+					// Allocate and zero-fill the target data buffer
+					unsigned long target_data_buffer_size = source_buffer->size - firmware_image_offset;
+					unsigned char* target_data_buffer = calloc(target_data_buffer_size, sizeof(unsigned char));
 
-					// Check if atleast the old firmware image offset is valid
-					if (firmware_image_offset < 1024)
+					// Copy the UEFI Image to the target file buffer
+					memcpy(target_data_buffer, source_buffer->data + firmware_image_offset, target_data_buffer_size);
+
+					// Create the target file buffer
+					data_buffer* target_buffer = create_buffer(target_data_buffer, target_data_buffer_size);
+
+					// Attempt to write the modified file
+					bool write_result = write_file(target_path, target_buffer);
+
+					// Free the file buffers
+					free_buffer(target_buffer);
+					free_buffer(source_buffer);
+
+					// Check if the file was written successfully
+					if (write_result == true)
+					{
+						return 0;
+					}
+					else
 					{
 						// Print error
-						printf("Unable to determine firmware image offset!");
-
-						// Free the source file buffer
-						free_buffer(source_buffer);
+						printf("Failed to write file \"%s\"", target_path);
 
 						// Return failure
 						return 1;
 					}
 				}
-
-				// Allocate and zero-fill the target data buffer
-				unsigned long target_data_buffer_size = source_buffer->size - firmware_image_offset;
-				unsigned char* target_data_buffer = calloc(target_data_buffer_size, sizeof(unsigned char));
-
-				// Copy the UEFI Image to the target file buffer
-				memcpy(target_data_buffer, source_buffer->data + firmware_image_offset, target_data_buffer_size);
-
-				// Create the target file buffer
-				data_buffer* target_buffer = create_buffer(target_data_buffer, target_data_buffer_size);
-
-				// Attempt to write the modified file
-				bool write_result = write_file(target_path, target_buffer);
-
-				// Free the file buffers
-				free_buffer(target_buffer);
-				free_buffer(source_buffer);
-
-				if (write_result == true)
-				{
-					return 0;
-				}
 				else
 				{
 					// Print error
-					printf("Failed to write file \"%s\"", target_path);
+					printf("Unable to determine firmware image offset!");
+
+					// Free the source file buffer
+					free_buffer(source_buffer);
 
 					// Return failure
 					return 1;
@@ -113,7 +124,7 @@ int main(int argument_count, char* argument_list[])
 		else
 		{
 			// Print error
-			puts("Input file does not exist!");
+			printf("Input file does not exist!\n");
 
 			// Return failure
 			return 1;
@@ -122,7 +133,7 @@ int main(int argument_count, char* argument_list[])
 	else if (argument_count > 3)
 	{
 		// Print error
-		puts("Too many arguments provided!");
+		printf("Too many arguments provided!\n");
 
 		// Return failure
 		return 1;
