@@ -4,19 +4,41 @@
 #include <stdlib.h>
 #include <string.h>
 
-// Program Headers
-#include "Main.h"
-#include "Files.h"
-#include "Strings.h"
-
 // Image start location definitions
+#define MSI_Image_Start_Location_Count 3
 unsigned long MSI_Image_Start_Locations[] = { 0x1A3090, 0x1A30A8, 0x1A30B4 };
+
+bool read_file(FILE* handle, void* buffer, unsigned int* size)
+{
+	if(handle != NULL && size != NULL)
+	{
+		if(buffer != NULL)
+		{
+			fseek(handle, 0, SEEK_END);
+			*size = ftell(handle);
+			fseek(handle, 0, SEEK_SET);
+			fread(buffer, 1, *size, handle);
+		}
+		else
+		{
+			fseek(handle, 0, SEEK_END);
+			*size = ftell(handle);
+			fseek(handle, 0, SEEK_SET);
+		}
+		
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
 
 // Program Entry Point
 int main(int argument_count, char* argument_list[])
 {
 	// Print program header
-	printf("MSI UEFI Firmware Extractor v1.0.1\n");
+	printf("MSI UEFI Firmware Extractor v1.0.2\n");
 
 	if (argument_count == 1)
 	{
@@ -37,27 +59,38 @@ int main(int argument_count, char* argument_list[])
 		}
 		else
 		{
-			target_path = argument_list[1];
-			target_path = c_replace_string_c(target_path, ".EXE", ".rom");
-			target_path = c_replace_string_c(target_path, ".exe", ".rom");
+			target_path = strdup(argument_list[1]);
+			int length = strlen(target_path);
+			
+			if(strcmp(target_path + (length - 3), "EXE") == 0)
+			{
+				strcpy(target_path + (length - 3), "rom");
+			}
+			else if(strcmp(target_path + (length - 3), "exe") == 0)
+			{
+				strcpy(target_path + (length - 3), "rom");
+			}
 		}
 
-		// Check if the source file exists
-		if (check_if_exists(source_path) == true)
+		// Attempt to open the source file
+		FILE* source_file = fopen(source_path, "rb");
+		if (source_file != NULL)
 		{
-			// Attempt to read the source file
-			data_buffer* source_buffer = read_file(source_path);
-			if (source_buffer != NULL)
+			// Get the source file size
+			unsigned int source_file_size = 0;
+			read_file(source_file, NULL, &source_file_size);
+			
+			// Read the source file
+			unsigned char* source_file_buffer = malloc(source_file_size);
+			bool read_result = read_file(source_file, source_file_buffer, &source_file_size);
+			if (read_result == true)
 			{
-				// Determine count of image start location
-				unsigned int start_location_count = (sizeof(MSI_Image_Start_Locations) / sizeof(MSI_Image_Start_Locations[0]));
-				
 				// Determine the firmware image offset
 				unsigned long firmware_image_offset = 0;
-				for(unsigned int locations_processed = 0; locations_processed < start_location_count; locations_processed++)
+				for(unsigned int locations_processed = 0; locations_processed < MSI_Image_Start_Location_Count; locations_processed++)
 				{
 					// Copy the firmware image offset from the source file
-					memcpy(&firmware_image_offset, source_buffer->data + MSI_Image_Start_Locations[locations_processed], 4);
+					memcpy(&firmware_image_offset, source_file_buffer + MSI_Image_Start_Locations[locations_processed], 4);
 					
 					// Check if the firmware offset is valid
 					if(firmware_image_offset > 1024)
@@ -70,35 +103,25 @@ int main(int argument_count, char* argument_list[])
 				if(firmware_image_offset > 1024)
 				{
 					// Allocate and zero-fill the target data buffer
-					unsigned long target_data_buffer_size = source_buffer->size - firmware_image_offset;
-					unsigned char* target_data_buffer = calloc(target_data_buffer_size, sizeof(unsigned char));
+					unsigned long target_file_size = source_file_size - firmware_image_offset;
+					unsigned char* target_file_buffer = calloc(target_file_size, sizeof(unsigned char));
 
 					// Copy the UEFI Image to the target file buffer
-					memcpy(target_data_buffer, source_buffer->data + firmware_image_offset, target_data_buffer_size);
+					memcpy(target_file_buffer, source_file_buffer + firmware_image_offset, target_file_size);
 
-					// Create the target file buffer
-					data_buffer* target_buffer = create_buffer(target_data_buffer, target_data_buffer_size);
-
-					// Attempt to write the modified file
-					bool write_result = write_file(target_path, target_buffer);
+					// Write the modified file
+					FILE* destination_file = fopen(target_path, "wb");
+					fwrite(target_file_buffer, 1, target_file_size, destination_file);
 
 					// Free the file buffers
-					free_buffer(target_buffer);
-					free_buffer(source_buffer);
+					free(target_file_buffer);
+					free(source_file_buffer);
 
-					// Check if the file was written successfully
-					if (write_result == true)
-					{
-						return 0;
-					}
-					else
-					{
-						// Print error
-						printf("Failed to write file \"%s\"", target_path);
-
-						// Return failure
-						return 1;
-					}
+					// Close the file handles
+					fclose(destination_file);
+					fclose(source_file);
+					
+					return 0;
 				}
 				else
 				{
@@ -106,7 +129,7 @@ int main(int argument_count, char* argument_list[])
 					printf("Unable to determine firmware image offset!");
 
 					// Free the source file buffer
-					free_buffer(source_buffer);
+					free(source_file_buffer);
 
 					// Return failure
 					return 1;
